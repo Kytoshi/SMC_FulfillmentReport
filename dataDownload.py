@@ -14,6 +14,7 @@ import pandas as pd
 import threading
 
 import logging
+import shutil
 
 
 logging.basicConfig(
@@ -28,23 +29,33 @@ holidays = {
     '11/10/2023', '11/23/2023', '12/25/2023'
 }
 
+def backup_file(source_folder, destination_folder, file_prefix, previous_date):
+    """
+    Finds the latest file in the source_folder that starts with file_prefix, 
+    renames it with the current date, and copies it to the destination_folder.
+    """
+    files = [f for f in os.listdir(source_folder) if f.startswith(file_prefix)]
+    
+    if not files:
+        print(f"{file_prefix} Not Found in {source_folder}")
+        return
+    
+    # Get the most recent file based on modification time
+    files.sort(key=lambda x: os.path.getmtime(os.path.join(source_folder, x)), reverse=True)
+    latest_file = files[0]
 
-def get_unique_filename(directory, filename):
-    base, ext = os.path.splitext(filename)
-    counter = 1
-    new_filename = filename
+    # Generate the new filename with previous date
+    file_name, file_extension = os.path.splitext(latest_file)
+    new_file_name = f"{file_name}_{previous_date}{file_extension}"
 
-    def is_complete_file(path):
-        return not (path.endswith('.crdownload') or path.endswith('.part'))
+    source_path = os.path.join(source_folder, latest_file)
+    destination_path = os.path.join(destination_folder, new_file_name)
 
-    # Only consider files with the same extension and not temporary
-    while any(
-        is_complete_file(os.path.join(directory, f)) and f == new_filename and os.path.splitext(f)[1] == ext
-        for f in os.listdir(directory)
-    ):
-        new_filename = f"{base}({counter}){ext}"
-        counter += 1
-    return new_filename
+    try:
+        shutil.copy2(source_path, destination_path)
+        print(f"Copied {latest_file} to {destination_folder} as {new_file_name}\n")
+    except Exception as e:
+        print(f"Error copying file: {e}")
 
 def wait_for_element(driver, by, value, total_wait=480, check_interval=10):
     try:
@@ -118,6 +129,29 @@ def create_driver(download_path):
 
 
 def DailyOS(username, password, dPath, progress_callback=None) -> None:
+
+    try:
+        # Define backup folder path
+        backup_path = os.path.join(dPath, "backup")
+
+        # Check if backup folder exists, create if missing
+        if not os.path.exists(backup_path):
+            print(f"Backup folder not found. Creating at {backup_path}...")
+            os.makedirs(backup_path)
+        else:
+            print(f"Backup folder already exists at {backup_path}")
+        
+        if not os.path.exists(dPath + "/DailyReport.xlsx"):
+            print(f"DailyReport.xlsx does not exist. Moving forward with program...")
+        else:
+            # Format backup suffix (yesterday’s business day)
+            backup_suffix = subtract_one_business_day(datetime.today()).strftime("%m-%d-%Y")
+
+            # Run backup
+            backup_file(dPath, backup_path, "DailyReport", backup_suffix)
+            print(f"Backup complete: DailyReport_{backup_suffix}")
+    except Exception as e:
+        print(f"Backup failed: {e}")
 
     try:
         if progress_callback:
@@ -237,8 +271,7 @@ def DailyOS(username, password, dPath, progress_callback=None) -> None:
                     # File is a real Excel file
                     df = pd.read_excel(file_path)
                 # Use get_unique_filename for .xlsx output
-                xlsx_name = get_unique_filename(dPath, os.path.splitext(os.path.basename(file_path))[0] + '.xlsx')
-                xlsx_path = os.path.join(dPath, xlsx_name)
+                xlsx_path = os.path.join(dPath, "DailyReport.xlsx")
                 df.to_excel(xlsx_path, index=False)
                 # print(f"Converted file to {xlsx_path}")
                 # Delete the original file after conversion

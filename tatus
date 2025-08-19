@@ -1,0 +1,97 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/.gitignore b/.gitignore[m
+[1mindex cfcfc6c..a54b169 100644[m
+[1m--- a/.gitignore[m
+[1m+++ b/.gitignore[m
+[36m@@ -1,2 +1,4 @@[m
+ error_log.txt[m
+ FReportTestEnv.ipynb[m
+[32m+[m[32mpBarTest.py[m
+[32m+[m[32m__pycache__/dataDownload.cpython-313.pyc[m
+[1mdiff --git a/dataDownload.py b/dataDownload.py[m
+[1mindex 78d4787..cebb74f 100644[m
+[1m--- a/dataDownload.py[m
+[1m+++ b/dataDownload.py[m
+[36m@@ -14,6 +14,7 @@[m [mimport pandas as pd[m
+ import threading[m
+ [m
+ import logging[m
+[32m+[m[32mimport shutil[m
+ [m
+ [m
+ logging.basicConfig([m
+[36m@@ -28,6 +29,34 @@[m [mholidays = {[m
+     '11/10/2023', '11/23/2023', '12/25/2023'[m
+ }[m
+ [m
+[32m+[m[32mdef backup_file(source_folder, destination_folder, file_prefix, previous_date):[m
+[32m+[m[32m    """[m
+[32m+[m[32m    Finds the latest file in the source_folder that starts with file_prefix,[m[41m [m
+[32m+[m[32m    renames it with the current date, and copies it to the destination_folder.[m
+[32m+[m[32m    """[m
+[32m+[m[32m    files = [f for f in os.listdir(source_folder) if f.startswith(file_prefix)][m
+[32m+[m[41m    [m
+[32m+[m[32m    if not files:[m
+[32m+[m[32m        print(f"{file_prefix} Not Found in {source_folder}")[m
+[32m+[m[32m        return[m
+[32m+[m[41m    [m
+[32m+[m[32m    # Get the most recent file based on modification time[m
+[32m+[m[32m    files.sort(key=lambda x: os.path.getmtime(os.path.join(source_folder, x)), reverse=True)[m
+[32m+[m[32m    latest_file = files[0][m
+[32m+[m
+[32m+[m[32m    # Generate the new filename with previous date[m
+[32m+[m[32m    file_name, file_extension = os.path.splitext(latest_file)[m
+[32m+[m[32m    new_file_name = f"{file_name}_{previous_date}{file_extension}"[m
+[32m+[m
+[32m+[m[32m    source_path = os.path.join(source_folder, latest_file)[m
+[32m+[m[32m    destination_path = os.path.join(destination_folder, new_file_name)[m
+[32m+[m
+[32m+[m[32m    try:[m
+[32m+[m[32m        shutil.copy2(source_path, destination_path)[m
+[32m+[m[32m        print(f"Copied {latest_file} to {destination_folder} as {new_file_name}\n")[m
+[32m+[m[32m    except Exception as e:[m
+[32m+[m[32m        print(f"Error copying file: {e}")[m
+[32m+[m
+ [m
+ def get_unique_filename(directory, filename):[m
+     base, ext = os.path.splitext(filename)[m
+[36m@@ -119,6 +148,29 @@[m [mdef create_driver(download_path):[m
+ [m
+ def DailyOS(username, password, dPath, progress_callback=None) -> None:[m
+ [m
+[32m+[m[32m    try:[m
+[32m+[m[32m        # Define backup folder path[m
+[32m+[m[32m        backup_path = os.path.join(dPath, "backup")[m
+[32m+[m
+[32m+[m[32m        # Check if backup folder exists, create if missing[m
+[32m+[m[32m        if not os.path.exists(backup_path):[m
+[32m+[m[32m            print(f"Backup folder not found. Creating at {backup_path}...")[m
+[32m+[m[32m            os.makedirs(backup_path)[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            print(f"Backup folder already exists at {backup_path}")[m
+[32m+[m[41m        [m
+[32m+[m[32m        if not os.path.exists(dPath + "/DailyReport.xlsx"):[m
+[32m+[m[32m            print(f"DailyReport.xlsx does not exist. Moving forward with program...")[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            # Format backup suffix (yesterday’s business day)[m
+[32m+[m[32m            backup_suffix = subtract_one_business_day(datetime.today()).strftime("%m-%d-%Y")[m
+[32m+[m
+[32m+[m[32m            # Run backup[m
+[32m+[m[32m            backup_file(dPath, backup_path, "DailyReport", backup_suffix)[m
+[32m+[m[32m            print(f"Backup complete: DailyReport_{backup_suffix}")[m
+[32m+[m[32m    except Exception as e:[m
+[32m+[m[32m        print(f"Backup failed: {e}")[m
+[32m+[m
+     try:[m
+         if progress_callback:[m
+             progress_callback("start")  # Start progress animation[m
+[36m@@ -237,8 +289,7 @@[m [mdef DailyOS(username, password, dPath, progress_callback=None) -> None:[m
+                     # File is a real Excel file[m
+                     df = pd.read_excel(file_path)[m
+                 # Use get_unique_filename for .xlsx output[m
+[31m-                xlsx_name = get_unique_filename(dPath, os.path.splitext(os.path.basename(file_path))[0] + '.xlsx')[m
+[31m-                xlsx_path = os.path.join(dPath, xlsx_name)[m
+[32m+[m[32m                xlsx_path = os.path.join(dPath, "DailyReport.xlsx")[m
+                 df.to_excel(xlsx_path, index=False)[m
+                 # print(f"Converted file to {xlsx_path}")[m
+                 # Delete the original file after conversion[m
