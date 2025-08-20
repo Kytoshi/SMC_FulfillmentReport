@@ -99,20 +99,26 @@ class SecondPage(tb.Frame):
         super().__init__(parent, padding=20)
         self.controller = controller
 
-        tb.Label(self, text="Processing your request...", font=("Segoe UI", 14)).pack(pady=10)
+        tb.Label(self, 
+            text="Processing your request...", 
+            font=("Segoe UI", 14)).pack(pady=10)
 
         # Status label
-        self.status_label = tb.Label(self, text="Waiting to start...", bootstyle=SECONDARY)
+        self.status_label = tb.Label(self, 
+            text="Waiting to start...", 
+            bootstyle=SECONDARY)
         self.status_label.pack(pady=5)
 
         # Progress bar (indeterminate mode)
-        self.progress = tb.Progressbar(self, mode="indeterminate", bootstyle=INFO)
+        self.progress = tb.Progressbar(self, 
+            mode="indeterminate", 
+            bootstyle=INFO)
         self.progress.pack(fill=X, padx=20, pady=10)
 
         # Back button
         tb.Button(
             self,
-            text="Back",
+            text="Update Report (Excel)",
             bootstyle=SECONDARY,
             width=20,
             command=lambda: controller.show_frame("FormPage")
@@ -121,11 +127,15 @@ class SecondPage(tb.Frame):
     def progress_control(self, action):
         """Called by DailyOS to control the loading bar"""
         if action == "start":
-            self.status_label.config(text="Loading...", bootstyle=INFO)
+            self.status_label.config(
+                text="Loading...", 
+                bootstyle=INFO)
             self.progress.start(10)
         elif action == "stop":
             self.progress.stop()
-            self.status_label.config(text="Done!", bootstyle=SUCCESS)
+            self.status_label.config(
+                text="Done!", 
+                bootstyle=SUCCESS)
 
 class App(tb.Window):
     def __init__(self):
