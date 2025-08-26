@@ -115,14 +115,14 @@ class SecondPage(tb.Frame):
             bootstyle=INFO)
         self.progress.pack(fill=X, padx=20, pady=10)
 
-        # Back button
-        tb.Button(
-            self,
-            text="Update Report (Excel)",
-            bootstyle=SECONDARY,
-            width=20,
-            command=lambda: controller.show_frame("FormPage")
-        ).pack(pady=20)
+        # # Back button
+        # tb.Button(
+        #     self,
+        #     text="Update Report (Excel)",
+        #     bootstyle=SECONDARY,
+        #     width=20,
+        #     command=lambda: controller.show_frame("FormPage")
+        # ).pack(pady=20)
 
     def progress_control(self, action):
         """Called by DailyOS to control the loading bar"""

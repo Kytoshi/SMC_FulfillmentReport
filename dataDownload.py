@@ -24,9 +24,18 @@ logging.basicConfig(
 )
 
 holidays = {
-    '01/01/2023', '01/02/2023', '01/16/2023', '02/20/2023',
-    '05/29/2023', '07/04/2023', '09/04/2023', '10/09/2023',
-    '11/10/2023', '11/23/2023', '12/25/2023'
+    "01/01",  # New Year's Day
+    "01/20",  # MLK Day (example static date for demo; usually 3rd Monday in Jan)
+    "02/17",  # Presidents' Day (example static date)
+    "05/26",  # Memorial Day (example static date)
+    "06/19",  # Juneteenth
+    "07/03",  # Independence Day (observed)
+    "07/04",  # Independence Day
+    "09/01",  # Labor Day (example static date)
+    "11/27",  # Thanksgiving (example static date)
+    "11/28",  # Day after Thanksgiving
+    "12/24",  # Christmas Eve
+    "12/25"   # Christmas Day
 }
 
 def backup_file(source_folder, destination_folder, file_prefix, previous_date):
@@ -71,10 +80,10 @@ def subtract_one_business_day(date, holidays=holidays):
     date -= timedelta(days=1)
 
     while True:
-        date_str = date.strftime('%m/%d/%Y')
+        date_str = date.strftime('%m/%d')  # Only month/day
 
         if date_str in holidays:
-            print(f"{date_str} is a holiday, going back one more day.")
+            print(f"{date.strftime('%m/%d/%Y')} is a holiday, going back one more day.")
             date -= timedelta(days=1)
             continue
 
@@ -145,7 +154,7 @@ def DailyOS(username, password, dPath, progress_callback=None) -> None:
             print(f"DailyReport.xlsx does not exist. Moving forward with program...")
         else:
             # Format backup suffix (yesterday’s business day)
-            backup_suffix = subtract_one_business_day(datetime.today()).strftime("%m-%d-%Y")
+            backup_suffix = subtract_one_business_day(subtract_one_business_day(datetime.today())).strftime("%m-%d-%Y")
 
             # Run backup
             backup_file(dPath, backup_path, "DailyReport", backup_suffix)
