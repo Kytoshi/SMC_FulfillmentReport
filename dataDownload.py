@@ -24,9 +24,18 @@ logging.basicConfig(
 )
 
 holidays = {
-    '01/01/2023', '01/02/2023', '01/16/2023', '02/20/2023',
-    '05/29/2023', '07/04/2023', '09/04/2023', '10/09/2023',
-    '11/10/2023', '11/23/2023', '12/25/2023'
+    "01/01",  # New Year's Day
+    "01/20",  # MLK Day (example static date for demo; usually 3rd Monday in Jan)
+    "02/17",  # Presidents' Day (example static date)
+    "05/26",  # Memorial Day (example static date)
+    "06/19",  # Juneteenth
+    "07/03",  # Independence Day (observed)
+    "07/04",  # Independence Day
+    "09/01",  # Labor Day (example static date)
+    "11/27",  # Thanksgiving (example static date)
+    "11/28",  # Day after Thanksgiving
+    "12/24",  # Christmas Eve
+    "12/25"   # Christmas Day
 }
 
 def backup_file(source_folder, destination_folder, file_prefix, previous_date):
@@ -71,10 +80,10 @@ def subtract_one_business_day(date, holidays=holidays):
     date -= timedelta(days=1)
 
     while True:
-        date_str = date.strftime('%m/%d/%Y')
+        date_str = date.strftime('%m/%d')  # Only month/day
 
         if date_str in holidays:
-            print(f"{date_str} is a holiday, going back one more day.")
+            print(f"{date.strftime('%m/%d/%Y')} is a holiday, going back one more day.")
             date -= timedelta(days=1)
             continue
 
@@ -128,107 +137,93 @@ def create_driver(download_path):
     return driver
 
 
-def DailyOS(username, password, dPath, progress_callback=None) -> None:
-
+def DailyOS(username, password, dPath, progress_callback=None):
+    """
+    Original DailyOS functionality with determinate progress updates.
+    """
     try:
-        # Define backup folder path
-        backup_path = os.path.join(dPath, "backup")
+        steps = [
+            "Prepare backup folder",
+            "Backup previous report",
+            "Launch browser",
+            "Login",
+            "Navigate to report page",
+            "Set report date",
+            "Click report link",
+            "Wait for download",
+            "Wait for stable file",
+            "Convert to Excel"
+        ]
+        total_steps = len(steps)
+        def report_progress(step_index):
+            if progress_callback:
+                percent = ((step_index + 1) / total_steps) * 100
+                progress_callback("update", percent)
 
-        # Check if backup folder exists, create if missing
-        if not os.path.exists(backup_path):
-            print(f"Backup folder not found. Creating at {backup_path}...")
-            os.makedirs(backup_path)
-        else:
-            print(f"Backup folder already exists at {backup_path}")
-        
-        if not os.path.exists(dPath + "/DailyReport.xlsx"):
-            print(f"DailyReport.xlsx does not exist. Moving forward with program...")
-        else:
-            # Format backup suffix (yesterday’s business day)
-            backup_suffix = subtract_one_business_day(datetime.today()).strftime("%m-%d-%Y")
-
-            # Run backup
-            backup_file(dPath, backup_path, "DailyReport", backup_suffix)
-            print(f"Backup complete: DailyReport_{backup_suffix}")
-    except Exception as e:
-        print(f"Backup failed: {e}")
-
-    try:
+        # --- Step 0: Backup folder ---
         if progress_callback:
-            progress_callback("start")  # Start progress animation
+            progress_callback("start")
+        backup_path = os.path.join(dPath, "backup")
+        if not os.path.exists(backup_path):
+            os.makedirs(backup_path)
+        report_progress(0)
 
+        # --- Step 1: Backup previous report ---
+        if os.path.exists(os.path.join(dPath, "DailyReport.xlsx")):
+            backup_suffix = subtract_one_business_day(subtract_one_business_day(datetime.today())).strftime("%m-%d-%Y")
+            backup_file(dPath, backup_path, "DailyReport", backup_suffix)
+        report_progress(1)
+
+        # --- Step 2: Launch browser ---
         driver = create_driver(str(dPath))
-        driver.set_page_load_timeout(600)
-        driver.set_script_timeout(600)
-        driver.get("https://pdbs.supermicro.com:18893/Home")
+        report_progress(2)
 
-        # Login steps
-        print("Logging in...")
+        # --- Step 3: Login ---
+        driver.get("https://pdbs.supermicro.com:18893/Home")
         username_field = driver.find_element(By.ID, "txtUserName")
         password_field = driver.find_element(By.ID, "xPWD")
         username_field.send_keys(username)
         password_field.send_keys(password)
         driver.find_element(By.ID, "btnSubmit").click()
-
-        # Wait for the login to complete
         time.sleep(1)
+        report_progress(3)
 
-        # Navigate to Daily Order Status Report Page
+        # --- Step 4: Navigate to report page ---
         links = driver.find_elements(By.TAG_NAME, 'a')
-
         for link in links:
             if link.get_attribute('href') == 'javascript:onClickTaskMenu("OrdReport.asp", 65)':
                 link.click()
                 break
+        report_progress(4)
 
-        #Set date for third page (Daily Orders)
+        # --- Step 5: Set report date ---
         DailyOrders_date_field = wait_for_element(driver, By.NAME, "Date")
         DailyOrders_date_field.clear()
-        today = datetime.today()
-        prevDate = subtract_one_business_day(today)
-        DailyOrders_date_field.send_keys(prevDate.strftime("%m/%d/%Y")) # Sets date to the previous business day
-
+        prevDate = subtract_one_business_day(datetime.today())
+        DailyOrders_date_field.send_keys(prevDate.strftime("%m/%d/%Y"))
         driver.execute_script("ChgDate()")
+        report_progress(5)
 
-        try:
-            # Find the link by its visible text and click it
-            link = driver.find_element(By.LINK_TEXT, "Order Fulfillment Report")
-            link.click()
-            # print("Link clicked successfully!")
+        # --- Step 6: Click report link ---
+        link = driver.find_element(By.LINK_TEXT, "Order Fulfillment Report")
+        link.click()
+        report_progress(6)
 
-        except Exception as e:
-            print(f"Error: {e}")
-
-        # Wait for the file to appear and be fully downloaded
-        timeout = 300  # Set a timeout in seconds (adjust as needed)
+        # --- Step 7: Wait for download to appear ---
+        timeout = 300
         start_time = time.time()
-
         while time.time() - start_time < timeout:
             files = [f for f in os.listdir(dPath) if f.startswith("DailyReport") and f.endswith(".xls")]
             if files:
-                # Find the most recently modified file that matches
                 file_path = max([os.path.join(dPath, f) for f in files], key=os.path.getmtime)
-
-                if file_path.endswith(".crdownload") or file_path.endswith(".part"):
-                    time.sleep(1)
-                else:
-                    # Only rename if another completed file with the same name exists (not the file just downloaded)
-                    base_name = os.path.basename(file_path)
-                    completed_files = [f for f in os.listdir(dPath)
-                                    if f == base_name and f != base_name and not (f.endswith('.crdownload') or f.endswith('.part'))]
-                    if completed_files:
-                        unique_name = get_unique_filename(dPath, base_name)
-                        unique_path = os.path.join(dPath, unique_name)
-                        if file_path != unique_path:
-                            os.rename(file_path, unique_path)
-                            file_path = unique_path
-                    # print("Download complete:", file_path)
+                if not file_path.endswith(('.crdownload', '.part')):
                     break
             time.sleep(1)
         else:
             raise TimeoutError("File download timed out.")
-        
-        # Wait for file size to stabilize before processing
+        report_progress(7)
+
+        # --- Step 8: Wait for stable file size ---
         def wait_for_stable_file_size(path, wait_time=3, check_interval=1):
             last_size = -1
             stable_count = 0
@@ -243,20 +238,10 @@ def DailyOS(username, password, dPath, progress_callback=None) -> None:
                     stable_count = 0
                 last_size = current_size
                 time.sleep(check_interval)
-
-        # After download is complete and file_path is set
         wait_for_stable_file_size(file_path)
+        report_progress(8)
 
-        # Wait for all temporary files to disappear before checking for duplicates and renaming
-        def wait_for_no_temp_files(directory, check_interval=1):
-            while any(f.endswith('.crdownload') or f.endswith('.part') for f in os.listdir(directory)):
-                time.sleep(check_interval)
-
-        # After download is complete and file_path is set
-        wait_for_no_temp_files(dPath)
-
-        # Now run unique filename logic and conversion
-        # Convert .xls to .xlsx if needed, handling HTML disguised as .xls
+        # --- Step 9: Convert to Excel ---
         if file_path.endswith('.xls'):
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -264,33 +249,29 @@ def DailyOS(username, password, dPath, progress_callback=None) -> None:
                     second_line = f.readline()
                 if ('<html' in first_line.lower() or '<table' in first_line.lower() or
                     '<html' in second_line.lower() or '<table' in second_line.lower()):
-                    # File is HTML, use read_html
                     dfs = pd.read_html(file_path)
-                    df = dfs[0]  # Use the first table found
+                    df = dfs[0]
                 else:
-                    # File is a real Excel file
                     df = pd.read_excel(file_path)
-                # Use get_unique_filename for .xlsx output
                 xlsx_path = os.path.join(dPath, "DailyReport.xlsx")
                 df.to_excel(xlsx_path, index=False)
-                # print(f"Converted file to {xlsx_path}")
-                # Delete the original file after conversion
                 if os.path.exists(file_path):
                     os.remove(file_path)
-                    # print(f"Deleted original file: {file_path}")
             except Exception as e:
                 print(f"Error converting {file_path}: {e}")
         elif file_path.endswith('.xlsx'):
             try:
                 df = pd.read_excel(file_path)
-                # print(f"Read Excel file: {file_path}")
             except Exception as e:
                 print(f"Error reading {file_path}: {e}")
         else:
             print(f"Downloaded file is not .xls or .xlsx: {file_path}")
-        
-        driver.quit()
 
+        driver.quit()
+        report_progress(9)
+
+    except Exception as e:
+        logging.error("DailyOS error", exc_info=True)
     finally:
         if progress_callback:
-            progress_callback("stop")  # Stop progress animation
+            progress_callback("stop", 100)
