@@ -60,7 +60,7 @@ def update_report(report_path, debug=False, progress_callback=None):
                 progress_callback("update", progress)
 
         # --- Step 3: Save workbook (~20%) ---
-        wb.Save()
+        wb.SaveAs(Filename=os.path.expanduser(report_path), FileFormat=51)
         print("Workbook saved.")
         if progress_callback:
             progress_callback("update", 90)
@@ -73,7 +73,7 @@ def update_report(report_path, debug=False, progress_callback=None):
         if progress_callback:
             progress_callback("update", 100)
 
-        return excel, wb
+        # return excel, wb
 
     finally:
         if progress_callback:
